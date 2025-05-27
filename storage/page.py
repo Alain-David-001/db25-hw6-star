@@ -23,14 +23,26 @@ class Page:
         return schema.deserialize(tuple_data)
 
     def serialize(self):
-        # Header: [num_slots (4), free_offset (4)]
-        out = bytearray()
-        out += len(self.slots).to_bytes(4, 'little')
-        out += self.free_offset.to_bytes(4, 'little')
+        # Build metadata (number of slots and free offset)
+        meta = bytearray()
+        meta += len(self.slots).to_bytes(4, 'little')
+        meta += self.free_offset.to_bytes(4, 'little')
+
+        # Build slot directory
+        slot_dir = bytearray()
         for offset in self.slots:
-            out += offset.to_bytes(4, 'little')
-        out += self.data[self.free_offset:]
-        return out
+            slot_dir += offset.to_bytes(4, 'little')
+
+        # Extract the tuple area (actual serialized data)
+        tuple_area = self.data[self.free_offset:]
+
+        # Assemble full page
+        full_page = bytearray(PAGE_SIZE)
+        full_page[0:len(meta)] = meta
+        full_page[len(meta):len(meta) + len(slot_dir)] = slot_dir
+        full_page[self.free_offset:] = tuple_area
+
+        return full_page
 
     def load(self, raw):
         self.slots = []
@@ -39,4 +51,4 @@ class Page:
         for i in range(num_slots):
             off = int.from_bytes(raw[8+i*4:12+i*4], 'little')
             self.slots.append(off)
-        self.data[self.free_offset:] = raw[8 + 4*num_slots:]
+        self.data = bytearray(raw)

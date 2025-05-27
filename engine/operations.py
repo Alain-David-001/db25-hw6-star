@@ -33,6 +33,8 @@ def select_from_table(table_name, where, schema, catalog, file_manager):
         page.load(raw)
 
         for i in range(len(page.slots)):
+            if page.slots[i] == -1:
+                continue  # Skip logically deleted tuples
             tup = page.get_tuple(i, schema)
             if _matches_where(tup, schema, where):
                 results.append(tup)
@@ -62,7 +64,10 @@ def update_table(table_name, where, set_values, schema, catalog, file_manager):
 
         updated = False
 
-        for i, offset in enumerate(page.slots):
+        for i in range(len(page.slots)):
+            if page.slots[i] == -1:
+                continue
+
             original = page.get_tuple(i, schema)
 
             if not _matches_where(original, schema, where):
@@ -78,19 +83,20 @@ def update_table(table_name, where, set_values, schema, catalog, file_manager):
 
             serialized = schema.serialize(modified)
 
-            # If updated tuple fits in the original space, overwrite in-place
-            next_offset = (
-                page.slots[i - 1] if i > 0 else PAGE_SIZE
-            )
+            offset = page.slots[i]
+            next_offset = page.slots[i - 1] if i > 0 else PAGE_SIZE
             max_len = next_offset - offset
 
+            # TODO: Avoid writing the same page multiple times during UPDATE.
+            #       Ideally batch all updates and flush the page once at the end.
             if len(serialized) <= max_len:
                 page.data[offset:offset + len(serialized)] = serialized
-                updated = True
+                file_manager.write_page(page_id, page.serialize()) #####
             else:
-                # Optional: mark original as deleted
-                # Then reinsert into same or another page (not implemented for simplicity)
-                raise NotImplementedError("Tuple update grew beyond original size. Not supported yet.")
+                page.slots[i] = -1
+                file_manager.write_page(page_id, page.serialize()) #####
+                insert_into_table(table_name, modified, schema, catalog, file_manager)
+            # updated = True
 
-        if updated:
-            file_manager.write_page(page_id, page.serialize())
+        # if updated:
+        #     file_manager.write_page(page_id, page.serialize())

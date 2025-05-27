@@ -17,6 +17,8 @@ class Page:
 
     def get_tuple(self, slot_idx, schema):
         offset = self.slots[slot_idx]
+        if offset == -1:
+            raise ValueError("Attempted to access deleted slot.")
         # Find length: use next slot or page end
         next_offset = self.slots[slot_idx - 1] if slot_idx > 0 else PAGE_SIZE
         tuple_data = self.data[offset:next_offset]
@@ -31,7 +33,7 @@ class Page:
         # Build slot directory
         slot_dir = bytearray()
         for offset in self.slots:
-            slot_dir += offset.to_bytes(4, 'little')
+            slot_dir += offset.to_bytes(4, 'little', signed=True)  # use signed=True to allow -1
 
         # Extract the tuple area (actual serialized data)
         tuple_area = self.data[self.free_offset:]
@@ -49,6 +51,6 @@ class Page:
         num_slots = int.from_bytes(raw[0:4], 'little')
         self.free_offset = int.from_bytes(raw[4:8], 'little')
         for i in range(num_slots):
-            off = int.from_bytes(raw[8+i*4:12+i*4], 'little')
+            off = int.from_bytes(raw[8+i*4:12+i*4], 'little', signed=True)
             self.slots.append(off)
         self.data = bytearray(raw)

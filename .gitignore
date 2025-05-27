@@ -1,3 +1,6 @@
 # Ignore Python cache
 __pycache__/
 *.py[cod]
+# Ignore persistent database files
+data/catalog.json
+data/database.db

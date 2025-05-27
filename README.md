@@ -1,7 +1,7 @@
 # db25-hw6-star
 
-A simple file-based DBMS project built for the Spring 2025 Databases course (DB25).  
-This system supports basic SQL-like operations over multiple named tables with typed columns, tuple storage, and page-level organization.
+A fully functional, persistent, file-based DBMS built for the Spring 2025 Databases course (DB25).  
+It supports typed columns, basic SQL commands, slotted-page storage, and a command-line REPL interface.
 
 > **HW6\*** — Bonus multiplier: **5**
 
@@ -9,17 +9,18 @@ This system supports basic SQL-like operations over multiple named tables with t
 
 ## 📌 Features
 
-- Supports multiple named tables
-- Typed columns (`STRING`, `INT`, `FLOAT`, etc.)
-- Operations:
+- Multiple named tables with typed columns (`STRING`, `INT`, `FLOAT`)
+- SQL-like operations:
   - `CREATE TABLE`
-  - `INSERT`
-  - `SELECT ... WHERE ...`
-  - `UPDATE`
-  - `DELETE`
-- All data persisted to disk across structured pages/files
-- Tuple storage using **slotted page** approach
+  - `INSERT INTO ... VALUES`
+  - `SELECT * FROM ... WHERE`
+  - `UPDATE ... SET ... WHERE`
+  - `DELETE FROM ... WHERE`
+- Persistent catalog and data files across runs
+- Slotted-page layout with logical deletion and in-place or relocated updates
 - No indexing — uses full scans with exact-match filtering
+- Minimal SQL parser to convert SQL strings into executable commands
+- REPL interface with multi-line input and error handling
 
 ---
 
@@ -27,19 +28,24 @@ This system supports basic SQL-like operations over multiple named tables with t
 
 ```
 db25-hw6-star/
-├── main.py                 # Entry point (CLI / REPL)
-├── storage/
-│   ├── file_manager.py     # File read/write logic
-│   ├── page.py             # Page structure & serialization
-│   ├── tuple.py            # Tuple layout and encoding
-│   └── catalog.py          # Table schemas and metadata
-├── parser/
-│   └── sql_parser.py       # Simple SQL-like parser
-├── engine/
-│   ├── executor.py         # Executes parsed commands
-│   └── operations.py       # SELECT/INSERT/UPDATE/DELETE logic
-├── data/
-│   └── database.db         # Data file (created at runtime)
+├── main.py                 # Entry point with REPL
+├── storage/                # Core storage logic
+│   ├── catalog.py
+│   ├── file_manager.py
+│   ├── page.py
+│   └── tuple.py
+├── engine/                 # Command execution logic
+│   ├── executor.py
+│   └── operations.py
+├── sql_parser/             # SQL-to-dict parser
+│   ├── __init__.py
+│   └── sql_parser.py
+├── tests/                  # pytest-based test suite
+│   ├── test_*.py
+├── data/                   # Auto-created during runtime
+│   ├── catalog.json
+│   └── database.db
+├── .gitignore
 └── README.md
 ```
 
@@ -53,43 +59,67 @@ cd db25-hw6-star
 python main.py
 ```
 
-This starts a basic REPL interface for running commands like:
+---
+
+## ▶️ Example Usage
+
+Here’s an example REPL session demonstrating all core features:
 
 ```sql
-CREATE TABLE users (id INT, name STRING);
-INSERT INTO users VALUES (1, 'Alice');
-SELECT * FROM users WHERE id = 1;
+Welcome to db25-hw6-star!
+Enter SQL commands ending with semicolon (;). Type 'exit;' to quit.
+> CREATE TABLE users (id INT, name STRING);
+> INSERT INTO users VALUES (1, 'Alice');
+> INSERT INTO users VALUES (2, 'Bob');
+> INSERT INTO users VALUES (3, 'Alice');
+> SELECT * FROM users;
+[1, 'Alice']
+[2, 'Bob']
+[3, 'Alice']
+> SELECT * FROM users WHERE name = 'Alice';
+[1, 'Alice']
+[3, 'Alice']
+> UPDATE users SET name = 'Alicia' WHERE id = 1;
+> SELECT * FROM users;
+[2, 'Bob']
+[3, 'Alice']
+[1, 'Alicia']
+> DELETE FROM users WHERE name = 'Alice';
+> SELECT * FROM users;
+[2, 'Bob']
+[1, 'Alicia']
+> exit;
+Goodbye!
 ```
+
+All data is persisted to disk — restarting the program will keep your tables and data intact.
 
 ---
 
-## 📚 Related Topics
+## 🧪 Testing
 
-To fully understand the implementation, review these lecture topics:
+Run all test cases using:
 
-- **Lecture 8** – Tuple layout, slotted pages
-- **Lecture 9–10** – Typed column storage, page design
-- **Lecture 7** – Heap files, page directories
-- **Lecture 11** – Buffer management ideas (optional)
-- **Lecture 4–5** – SQL basics
+```bash
+pytest
+```
+
+Covers all core features, full workflows, and error handling.
 
 ---
 
 ## 🧠 Notes
 
-- All filtering uses **exact matches only**.
-- The data file grows over time; no compaction yet.
-- The parser is minimal — only basic valid syntax is supported.
+- Uses slotted pages with logical deletes (`slot = -1`)
+- Updates that grow a tuple may reinsert it elsewhere
+- Parser supports basic syntax (e.g., no subqueries or joins)
+- No automatic vacuuming or page compaction (yet)
 
 ---
 
 ## 🧑‍💻 Author
 
-Alain David Escarrá García
-2nd-year Software, Data, and Technology student @ Constructor University
+**Alain David Escarrá García**  
+2nd-year Software, Data, and Technology student  
+Constructor University, Spring 2025
 
----
-
-## 📅 Deadline
-
-**May 28, 2025**

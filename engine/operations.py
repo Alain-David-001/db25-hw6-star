@@ -100,3 +100,24 @@ def update_table(table_name, where, set_values, schema, catalog, file_manager):
 
         # if updated:
         #     file_manager.write_page(page_id, page.serialize())
+
+def delete_from_table(table_name, where, schema, catalog, file_manager):
+    pages = catalog.get_pages(table_name)
+
+    for page_id in pages:
+        raw = file_manager.read_page(page_id)
+        page = Page()
+        page.load(raw)
+
+        deleted = False
+
+        for i in range(len(page.slots)):
+            if page.slots[i] == -1:
+                continue
+            tup = page.get_tuple(i, schema)
+            if _matches_where(tup, schema, where):
+                page.slots[i] = -1
+                deleted = True
+
+        if deleted:
+            file_manager.write_page(page_id, page.serialize())

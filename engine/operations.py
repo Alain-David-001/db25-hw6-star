@@ -50,3 +50,47 @@ def _matches_where(tup, schema, where):
         if tup[idx] != val:
             return False
     return True
+
+def update_table(table_name, where, set_values, schema, catalog, file_manager):
+    pages = catalog.get_pages(table_name)
+    column_names = [col[0] for col in schema.columns]
+
+    for page_id in pages:
+        raw = file_manager.read_page(page_id)
+        page = Page()
+        page.load(raw)
+
+        updated = False
+
+        for i, offset in enumerate(page.slots):
+            original = page.get_tuple(i, schema)
+
+            if not _matches_where(original, schema, where):
+                continue
+
+            # Apply updates
+            modified = original[:]
+            for col, val in set_values.items():
+                if col not in column_names:
+                    raise KeyError(f"Column '{col}' does not exist in table schema.")
+                idx = column_names.index(col)
+                modified[idx] = val
+
+            serialized = schema.serialize(modified)
+
+            # If updated tuple fits in the original space, overwrite in-place
+            next_offset = (
+                page.slots[i - 1] if i > 0 else PAGE_SIZE
+            )
+            max_len = next_offset - offset
+
+            if len(serialized) <= max_len:
+                page.data[offset:offset + len(serialized)] = serialized
+                updated = True
+            else:
+                # Optional: mark original as deleted
+                # Then reinsert into same or another page (not implemented for simplicity)
+                raise NotImplementedError("Tuple update grew beyond original size. Not supported yet.")
+
+        if updated:
+            file_manager.write_page(page_id, page.serialize())

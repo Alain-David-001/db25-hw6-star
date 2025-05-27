@@ -1,4 +1,4 @@
-from engine.operations import insert_into_table
+from engine.operations import insert_into_table, select_from_table
 from storage.tuple import TupleSchema
 from storage.catalog import Catalog
 
@@ -15,6 +15,12 @@ def execute_command(command, catalog: Catalog, file_manager):
         values = command["values"]
         schema = TupleSchema(catalog.get_schema(table))
         insert_into_table(table, values, schema, catalog, file_manager)
+
+    elif op == "SELECT":
+        table = command["table"]
+        where = command.get("where", {})
+        schema = TupleSchema(catalog.get_schema(table))
+        return select_from_table(table, where, schema, catalog, file_manager)
 
     else:
         raise NotImplementedError(f"Unsupported command: {op}")
